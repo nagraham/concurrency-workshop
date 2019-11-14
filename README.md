@@ -1,3 +1,3 @@
 # Concurrency Workshop
 
-A package containing some bits of code and experiments related to learning and mastering concurrency concepts.
+A personal package containing some bits of code written to further my understanding of concurrency in Java.
