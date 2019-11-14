@@ -1,22 +1,27 @@
 package jcip;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import spark.Request;
 import spark.Response;
 import spark.Route;
 
+import java.math.BigInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static spark.Spark.*;
 
 public class SynchronizationBasics {
+    private static Logger logger = LoggerFactory.getLogger(SynchronizationBasics.class);
 
     public static void main(String[] args) {
+        logger.info("Starting my REST server!");
         get("/fibonacci/:num", new UnsafeCachingFibonacci());
     }
 
     private static class UnsafeCachingFibonacci implements Route {
         private final AtomicReference<Integer> lastInput = new AtomicReference<>();
-        private final AtomicReference<Integer> cachedFibonacci = new AtomicReference<>();
+        private final AtomicReference<BigInteger> cachedFibonacci = new AtomicReference<>();
 
         @Override
         public Object handle(Request request, Response response) throws Exception {
@@ -24,12 +29,13 @@ public class SynchronizationBasics {
             Integer input = Integer.parseInt(request.params("num"));
 
             if (input.equals(lastInput.get())) {
-                return cachedFibonacci.get();
+                logger.info("Cache hit! input={}", input);
+                return cachedFibonacci.get() + "\n";
             } else {
-                int result = fibonacci(input);
+                BigInteger result = fibonacci(input);
                 lastInput.set(input);
                 cachedFibonacci.set(result);
-                return result;
+                return result + "\n";
             }
         }
     }
@@ -40,17 +46,17 @@ public class SynchronizationBasics {
      * @param num
      * @return
      */
-    private static int fibonacci(int num) {
+    private static BigInteger fibonacci(int num) {
         if (num < 0) {
             throw new IllegalArgumentException();
         } else if (num == 0) {
-            return 0;
+            return BigInteger.ZERO;
         }
 
-        int a = 0;
-        int b = 1;
+        BigInteger a = BigInteger.ZERO;
+        BigInteger b = BigInteger.ONE;
         for (int i = 1; i < num; i++) {
-            int next = a + b;
+            BigInteger next = a.add(b);
             a = b;
             b = next;
         }
