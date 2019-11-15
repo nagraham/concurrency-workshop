@@ -30,12 +30,12 @@ public class SynchronizationBasics {
 
             if (input.equals(lastInput.get())) {
                 logger.info("Cache hit! input={}", input);
-                return cachedFibonacci.get() + "\n";
+                return cachedFibonacci.get();
             } else {
                 BigInteger result = fibonacci(input);
                 lastInput.set(input);
                 cachedFibonacci.set(result);
-                return result + "\n";
+                return result;
             }
         }
     }
