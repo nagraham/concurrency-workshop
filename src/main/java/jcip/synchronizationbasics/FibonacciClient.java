@@ -1,4 +1,4 @@
-package jcip;
+package jcip.synchronizationbasics;
 
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
@@ -12,29 +12,30 @@ import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 /**
+ * This client code calls FibonacciService repeatedly with multiple threads to test the thread safety.
  *
  * The unsynchronized code fails quite often. Over the course of 90 concurrent calls to the service, it could return
  * an incorrect result anywhere from 1 - 10 times. In fact, after running it 15 times, it never had a run where all
  * 90 succeeded! This would seem to drive home the point that unsynchronized code in the presence of concurrency is
  * VERY broken.
  *
- * [pool-1-thread-1] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
- * [pool-1-thread-1] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
- * [pool-1-thread-2] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=12586269025
- * [pool-1-thread-3] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=12586269025
- * [pool-1-thread-3] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
- * [pool-1-thread-2] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
- * [pool-1-thread-3] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
- * [pool-1-thread-2] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
- * [pool-1-thread-2] WARN jcip.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-1] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
+ * [pool-1-thread-1] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=12586269025
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=12586269025
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
  */
-public class SynchronizationBasicsClientRunnable implements Runnable {
-    private static final Logger log = LoggerFactory.getLogger(SynchronizationBasicsClientRunnable.class);
+public class FibonacciClient implements Runnable {
+    private static final Logger log = LoggerFactory.getLogger(FibonacciClient.class);
 
     public static void main(String[] args) {
-        SynchronizationBasicsClientRunnable runnableA = newCountdownClient("A", 30, 50, "12586269025");
-        SynchronizationBasicsClientRunnable runnableB = newCountdownClient("B", 30, 9, "34");
-        SynchronizationBasicsClientRunnable runnableC = newCountdownClient("C", 30, 13, "233");
+        FibonacciClient runnableA = newCountdownClient("A", 30, 50, "12586269025");
+        FibonacciClient runnableB = newCountdownClient("B", 30, 9, "34");
+        FibonacciClient runnableC = newCountdownClient("C", 30, 13, "233");
 
         ExecutorService executorService = Executors.newFixedThreadPool(3);
         executorService.submit(runnableA);
@@ -43,13 +44,13 @@ public class SynchronizationBasicsClientRunnable implements Runnable {
         executorService.shutdown();
     }
 
-    private static SynchronizationBasicsClientRunnable newCountdownClient(
+    private static FibonacciClient newCountdownClient(
             String label,
             int count,
             int input,
             String expectedResult
     ) {
-        return new SynchronizationBasicsClientRunnable(label, expectedResult, new CountDownSupplier(count, input));
+        return new FibonacciClient(label, expectedResult, new CountDownSupplier(count, input));
     }
 
     private OkHttpClient client;
@@ -57,7 +58,7 @@ public class SynchronizationBasicsClientRunnable implements Runnable {
     private Supplier<Integer> inputSupplier;
     private String expectedResult;
 
-    public SynchronizationBasicsClientRunnable(String label, String expectedResult, Supplier<Integer> inputSupplier) {
+    public FibonacciClient(String label, String expectedResult, Supplier<Integer> inputSupplier) {
         this.client = new OkHttpClient();
         this.label = label;
         this.inputSupplier = inputSupplier;
@@ -76,10 +77,12 @@ public class SynchronizationBasicsClientRunnable implements Runnable {
             try {
                 Response response = client.newCall(httpRequest).execute();
                 String result = response.body().string();
+
                 log.debug("{} called /fibonacci; input={} result={}", label, input, result);
                 if (!expectedResult.equals(result)) {
                     log.warn("Return value is incorrect: result={}, expected={}", expectedResult, result);
                 }
+
                 input = inputSupplier.get();
             } catch (IOException exception) {
                 log.error("Error calling /fibonacci with OkHttp client", exception);

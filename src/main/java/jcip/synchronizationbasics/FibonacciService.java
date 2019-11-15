@@ -1,4 +1,4 @@
-package jcip;
+package jcip.synchronizationbasics;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,8 +11,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static spark.Spark.*;
 
-public class SynchronizationBasics {
-    private static Logger logger = LoggerFactory.getLogger(SynchronizationBasics.class);
+/**
+ * A basic service that returns the Nth number in the Fibonacci sequence. It will cache the previous
+ * result.
+ */
+public class FibonacciService {
+    private static Logger logger = LoggerFactory.getLogger(FibonacciService.class);
 
     public static void main(String[] args) {
         logger.info("Starting my REST server!");
