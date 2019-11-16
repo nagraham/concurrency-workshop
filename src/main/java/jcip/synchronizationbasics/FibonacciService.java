@@ -23,12 +23,44 @@ public class FibonacciService {
         get("/fibonacci/:num", new UnsafeCachingFibonacci());
     }
 
+    /**
+     * A handler that caches and returns the Fibonacci sequence number without thread safety.
+     *
+     * Runs (in millis): 1250, 947, 842, 879, 844, 821, 801 (912 avg)
+     */
     private static class UnsafeCachingFibonacci implements Route {
         private final AtomicReference<Integer> lastInput = new AtomicReference<>();
         private final AtomicReference<BigInteger> cachedFibonacci = new AtomicReference<>();
 
         @Override
         public Object handle(Request request, Response response) throws Exception {
+            // we are assuming well formed input
+            Integer input = Integer.parseInt(request.params("num"));
+
+            if (input.equals(lastInput.get())) {
+                logger.info("Cache hit! input={}", input);
+                return cachedFibonacci.get();
+            } else {
+                BigInteger result = fibonacci(input);
+                lastInput.set(input);
+                cachedFibonacci.set(result);
+                return result;
+            }
+        }
+    }
+
+    /**
+     * A handler that caches and returns the Fibonacci sequence number with thread safety
+     * by synchronizing the entire method.
+     *
+     * Runs (ms): 1198, 814, 820, 813, 1038, 814, 824 (903 avg)
+     */
+    private static class OverlySyncedCachingFibonacci implements Route {
+        private final AtomicReference<Integer> lastInput = new AtomicReference<>();
+        private final AtomicReference<BigInteger> cachedFibonacci = new AtomicReference<>();
+
+        @Override
+        public synchronized Object handle(Request request, Response response) throws Exception {
             // we are assuming well formed input
             Integer input = Integer.parseInt(request.params("num"));
 

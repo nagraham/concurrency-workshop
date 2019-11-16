@@ -5,10 +5,13 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import util.Benchmark;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 /**
@@ -19,29 +22,30 @@ import java.util.function.Supplier;
  * 90 succeeded! This would seem to drive home the point that unsynchronized code in the presence of concurrency is
  * VERY broken.
  *
- * [pool-1-thread-1] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
- * [pool-1-thread-1] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=12586269025, expected=34
- * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=12586269025
- * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=12586269025
- * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
- * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
- * [pool-1-thread-3] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=233, expected=34
- * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
- * [pool-1-thread-2] WARN jcip.synchronizationbasics.SynchronizationBasicsClientRunnable - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-1] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=12586269025, expected=34
+ * [pool-1-thread-1] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=12586269025, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=34, expected=12586269025
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=233, expected=12586269025
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=233, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-3] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=233, expected=34
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=34, expected=233
+ * [pool-1-thread-2] WARN jcip.synchronizationbasics.FibonacciClient - Return value is incorrect: result=34, expected=233
+ *
+ * As expected, the synchronized code never fails even after multiple runs, but is quite a bit slower (appears to be 10-20% slower).
  */
 public class FibonacciClient implements Runnable {
     private static final Logger log = LoggerFactory.getLogger(FibonacciClient.class);
 
     public static void main(String[] args) {
-        FibonacciClient runnableA = newCountdownClient("A", 30, 50, "12586269025");
-        FibonacciClient runnableB = newCountdownClient("B", 30, 9, "34");
-        FibonacciClient runnableC = newCountdownClient("C", 30, 13, "233");
-
-        ExecutorService executorService = Executors.newFixedThreadPool(3);
-        executorService.submit(runnableA);
-        executorService.submit(runnableB);
-        executorService.submit(runnableC);
-        executorService.shutdown();
+        Benchmark.logTime("FibonacciClient#main", log, () -> {
+            CompletableFuture<Void> all = CompletableFuture.allOf(
+                    CompletableFuture.runAsync(newCountdownClient("A", 30, 50, "12586269025")),
+                    CompletableFuture.runAsync(newCountdownClient("B", 30, 9, "34")),
+                    CompletableFuture.runAsync(newCountdownClient("C", 30, 13, "233"))
+            );
+            all.join();
+        });
     }
 
     private static FibonacciClient newCountdownClient(
