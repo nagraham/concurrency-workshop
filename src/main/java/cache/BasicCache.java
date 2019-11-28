@@ -31,8 +31,30 @@ public class BasicCache<Key, Value> implements Cache<Key, Value> {
         this.cache = new ConcurrentHashMap<>();
     }
 
-    public Value get(Key key) {
+    /*
+     * TODO: Implement
+     */
+    @Override
+    public Value get(Key key) throws InterruptedException, ExecutionException {
+        return null;
+    }
+
+    /**
+     * Returns the value at the given key.
+     *
+     * This function guarantees the producer will only be called once, even if multiple threads simultaneously
+     * call it. Additionally, any threads waiting on the producer function will block.
+     *
+     * @param key the key associated with the cached value
+     * @return the cached value
+     */
+    public Value getUnchecked(Key key) {
+
+        // Because computeIfAbsent is atomic, by storing the future in the concurrent hash,
+        // only a single thread will ever run the producer for a given key; multiple threads
+        // may block on completableFuture.get() to wait for the required value.
         cache.computeIfAbsent(key, k -> CompletableFuture.supplyAsync(() -> producer.apply(k)));
+
         Value value = null;
         try {
             value = cache.get(key).get();
