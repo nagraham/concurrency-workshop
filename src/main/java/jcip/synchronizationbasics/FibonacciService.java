@@ -20,13 +20,16 @@ public class FibonacciService {
 
     public static void main(String[] args) {
         logger.info("Starting my REST server!");
-        get("/fibonacci/:num", new ImmutableCachingFibonacci());
+        get("/fibonacci/:num", new UnsafeCachingFibonacci());
     }
 
     /**
      * A handler that caches and returns the Fibonacci sequence number without thread safety.
      *
-     * Runs (in millis): 1250, 947, 842, 879, 844, 821, 801 (912 avg)
+     * Benchmark:
+     *   5.405 ±(99.9%) 0.089 ms/op [Average]
+     *   (min, avg, max) = (5.372, 5.405, 5.430), stdev = 0.023
+     *   CI (99.9%): [5.316, 5.494] (assumes normal distribution)
      */
     private static class UnsafeCachingFibonacci implements Route {
         private final AtomicReference<Integer> lastInput = new AtomicReference<>();
@@ -38,7 +41,7 @@ public class FibonacciService {
             Integer input = Integer.parseInt(request.params("num"));
 
             if (input.equals(lastInput.get())) {
-                logger.info("Cache hit! input={}", input);
+                logger.debug("Cache hit! input={}", input);
                 return cachedFibonacci.get();
             } else {
                 BigInteger result = fibonacci(input);
@@ -53,7 +56,10 @@ public class FibonacciService {
      * A handler that caches and returns the Fibonacci sequence number with thread safety
      * by synchronizing the entire method.
      *
-     * Runs (ms): 1198, 814, 820, 813, 1038, 814, 824 (903 avg)
+     * Benchmark (w/o logging)
+     *   5.756 ±(99.9%) 0.589 ms/op [Average]
+     *   (min, avg, max) = (5.619, 5.756, 6.017), stdev = 0.153
+     *   CI (99.9%): [5.167, 6.345] (assumes normal distribution)
      */
     private static class OverlySyncedCachingFibonacci implements Route {
         private final AtomicReference<Integer> lastInput = new AtomicReference<>();
@@ -65,7 +71,7 @@ public class FibonacciService {
             Integer input = Integer.parseInt(request.params("num"));
 
             if (input.equals(lastInput.get())) {
-                logger.info("Cache hit! input={}", input);
+                logger.debug("Cache hit! input={}", input);
                 return cachedFibonacci.get();
             } else {
                 BigInteger result = fibonacci(input);
@@ -78,10 +84,17 @@ public class FibonacciService {
 
     /**
      * This works -- no issues due to race conditions. And the version number appeared to increase monotonically
-     * across cache hits. Although I am sure my benchmark is too scrappy to make solid conclusions on, it is clear
-     * that on average it has better performance than the synchronized version.
+     * across cache hits.
      *
-     * Runs (ms): 1105, 821, 897, 818, 784, 848, 806 (868 avg)
+     * By comparing the JMH benchmark with the overly synchronized version, the code is moderately faster
+     * (.2 ms on average), but with far less volatility (standard dev 0.041 ms compared to 0.153ms). It's
+     * still slower than the unthread-safe version despite the lack of synchronization. Perhaps that is due
+     * to the cost of allocating new objects?
+     *
+     * Benchmark:
+     *   5.554 ±(99.9%) 0.156 ms/op [Average]
+     *   (min, avg, max) = (5.506, 5.554, 5.607), stdev = 0.041
+     *   CI (99.9%): [5.398, 5.710] (assumes normal distribution)
      */
     private static class ImmutableCachingFibonacci implements Route {
         private volatile ImmutableOneFibonacciCache cache = ImmutableOneFibonacciCache.emptyCache();
@@ -102,7 +115,7 @@ public class FibonacciService {
                 // b/c the "cache" is volatile, when a thread calls update, it is called on the LAST written version
                 cache = cache.update(input, fibonacci);
             } else {
-                logger.info("Cache hit! input={}, cache.version={}", input, cache.version);
+                logger.debug("Cache hit! input={}, cache.version={}", input, cache.version);
             }
 
             return fibonacci;
